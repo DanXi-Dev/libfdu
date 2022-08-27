@@ -1,3 +1,5 @@
+mod fdu;
+
 use std::ffi::{CStr, CString};
 // Provides a lot of C-equivalent types.
 use libc::*;
