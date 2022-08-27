@@ -2,7 +2,7 @@
 name = "libfdu"
 version = "0.1.0"
 edition = "2021"
-author = ["w568w", "hasbai", "Dest1n1", "KYLN24", "Frankstein73","JingYiJun"]
+author = ["w568w", "hasbai", "Dest1n1", "KYLN24", "Frankstein73", "JingYiJun"]
 build = "build.rs"
 
 [lib]
@@ -18,4 +18,6 @@ cbindgen = "0.24.2"
 # 提供 C 类型
 libc = "0.2.132"
 # 阻塞的网络请求库
-reqwest = { version = "0.11.11", features = ["blocking"] }
+reqwest = { version = "0.11.11", features = ["blocking", "json", "cookies"] }
+scraper = "0.13.0"
+tokio = "1.20.1"
