@@ -1,4 +1,5 @@
 use std::ffi::{CStr, CString};
+
 // Provides a lot of C-equivalent types.
 use libc::*;
 
@@ -8,7 +9,15 @@ pub extern "C" fn hello_world() -> *mut c_char {
     // You can use CString::new to create a C-type String from a Rust String.
     // This is useful when you want to pass a String to a C function.
     // The CString will not be automatically freed by rust allocator, so you must do it manually in the C code.
-    CString::new("Hello Fudan!").unwrap().into_raw()
+    CString::new("hello world").unwrap().into_raw()
+}
+
+#[no_mangle]
+pub extern "C" fn free_string(s: *mut c_char) {
+    unsafe {
+        if s.is_null() { return; }
+        CString::from_raw(s)
+    };
 }
 
 #[no_mangle]
