@@ -23,7 +23,8 @@ const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (
 
 // This is good practice to use a trait, only if you believe the same methods will be implemented for different structs.
 // Otherwise, DO NOT bother yourself by declaring traits everywhere. Rust is sightly different from certain OOP languages, like Java,
-// and it does not support polymorphism very well.
+// and it does not support polymorphism very well. It is hard to store different structs with same trait in a single list,
+// you cannot store them on stack, and you can hardly decide their types at runtime because Rust is statically typed.
 trait FduInterface {
     fn login(&self, uid: &str, pwd: &str) -> Result<(), reqwest::Error>;
     fn logout(&self) -> Result<(), reqwest::Error>;
