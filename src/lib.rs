@@ -25,7 +25,7 @@ pub extern "C" fn get_url(url: *const c_char) -> *mut c_char {
     };
     let url = c_str.to_str().unwrap();
     // Use blocking http client to get the content of the url.
-    // Obviously, you cannot use async http client in the C code.
+    // Obviously, you cannot use async http client in the C code, so we drop any kind of async features in this project.
     let body = reqwest::blocking::get(url).unwrap().text().unwrap();
     CString::new(body).unwrap().into_raw()
 }
