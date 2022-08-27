@@ -1,6 +1,7 @@
 mod fdu;
 
 use std::ffi::{CStr, CString};
+
 // Provides a lot of C-equivalent types.
 use libc::*;
 
@@ -22,7 +23,15 @@ pub extern "C" fn hello_world() -> *mut c_char {
     // The CString will not be automatically freed by rust allocator, so you must do it manually in the C code.
     // p.s. The free functions for C are different in different platforms.
     //      For example, on Linux, it is free() and on Windows it is HeapFree().
-    CString::new("Hello Fudan!").unwrap().into_raw()
+    CString::new("hello world").unwrap().into_raw()
+}
+
+#[no_mangle]
+pub extern "C" fn free_string(s: *mut c_char) {
+    unsafe {
+        if s.is_null() { return; }
+        CString::from_raw(s)
+    };
 }
 
 #[no_mangle]
