@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::env;
 
 use reqwest::{header, redirect};
 use reqwest::blocking::Client;
@@ -126,8 +125,9 @@ mod tests {
 
     #[test]
     fn login_and_out() {
-        let uid = env::var("UID").expect("environment variable UID not set");
-        let pwd = env::var("PWD").expect("environment variable PWD not set");
+        dotenv::dotenv().ok();  // load env from .env file
+        let uid = std::env::var("UID").expect("environment variable UID not set");
+        let pwd = std::env::var("PWD").expect("environment variable PWD not set");
 
         let mut fd = Fdu::new();
         fd.login(uid.as_str(), pwd.as_str()).expect("login error");

@@ -15,6 +15,7 @@ crate-type = ["cdylib"]
 cbindgen = "0.24.2"
 
 [dependencies]
+dotenv = "0.15.0"
 # 提供 C 类型
 libc = "0.2.132"
 # 阻塞的网络请求库
