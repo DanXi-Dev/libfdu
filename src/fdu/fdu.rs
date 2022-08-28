@@ -151,8 +151,6 @@ mod tests {
 
         let mut fd = Fdu::new();
         fd.login(uid.as_str(), pwd.as_str()).expect("login error");
-        fd.get_jwfw_homepage().expect("jwfw error");
-        fd.get_course_table().expect("jwfw course table error");
         fd.logout().expect("logout error");
     }
 
