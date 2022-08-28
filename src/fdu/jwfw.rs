@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+
 use regex::Regex;
 use scraper::{Html, Selector};
+
 use crate::fdu::fdu::{Account, Fdu};
 
 const JWFW_URL: &str = "https://jwfw.fudan.edu.cn/eams/home.action";
@@ -27,13 +29,13 @@ index =1*unitCount+9;
 table0.activities[index][table0.activities[index].length]=activity;
  */
 // the number in "index =2*unitCount+0;", "index =1*unitCount+8;", etc. implies the day and time for the course in the current week.
-fn parse_course_time(html: &String) -> HashMap<&str, Vec<(i32, i32)>> {
+fn parse_course_time(html: &String) -> HashMap<String, Vec<(i32, i32)>> {
     let regexCourse = Regex::new(r##"activity = new TaskActivity\("\d+","\S+","\d+\((\w+.\w+)\)","\S+\(\w+.\w+\)","\d+","\w+","[01]+"\);((?:\s*index =\d+\*unitCount\+\d+;\s*table0.activities\[index\]\[table0.activities\[index\].length\]=activity;)+)"##).unwrap();
-    let mut ret: HashMap<&str, Vec<(i32, i32)>> = HashMap::new();
+    let mut ret = HashMap::new();
     for capCourse in regexCourse.captures_iter(html.as_str()) {
         // Get the course code
         // e.g. "COMP130004.03"
-        let courseCode = String::from(&capCourse[1]);
+        let courseCode = capCourse[1].to_string();
         // Get the data for each group, which is like
         /*
         index =2*unitCount+0;
@@ -48,14 +50,14 @@ fn parse_course_time(html: &String) -> HashMap<&str, Vec<(i32, i32)>> {
         for capLesson in regexLesson.captures_iter(courseData) {
             let dayNumber: &i32 = &capLesson[1].parse().unwrap();
             let timeNumber: &i32 = &capLesson[2].parse().unwrap();
-            match ret.get(courseCode.as_str()) {
+            match ret.get(&courseCode) {
                 None => {
-                    ret.insert(courseCode.as_str(), vec![(*dayNumber, *timeNumber)]);
+                    ret.insert(courseCode.to_string(), vec![(*dayNumber, *timeNumber)]);
                 }
                 Some(courseTime) => {
                     let mut courseTimeClone = courseTime.clone();
                     courseTimeClone.push((*dayNumber, *timeNumber));
-                    ret.insert(courseCode.as_str(), courseTimeClone);
+                    ret.insert(courseCode.to_string(), courseTimeClone);
                 }
             }
         }
