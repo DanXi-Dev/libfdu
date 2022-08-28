@@ -121,7 +121,7 @@ impl Account for Fdu {
 
 impl Fdu {
     // It is always recommended to use `new()` to create an instance of a struct.
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let cookie_store = Arc::new(Jar::default());
         let client = Self::client_builder()
             .cookie_provider(Arc::clone(&cookie_store))

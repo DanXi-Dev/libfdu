@@ -96,3 +96,19 @@ pub trait JwfwClient: Account {
         Ok(())
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_jwfw_homepage() {
+        dotenv::dotenv().ok();  // load env from .env file
+        let uid = std::env::var("UID").expect("environment variable UID not set");
+        let pwd = std::env::var("PWD").expect("environment variable PWD not set");
+
+        let mut fd = Fdu::new();
+        fd.login(uid.as_str(), pwd.as_str()).expect("login error");
+        fd.get_jwfw_homepage().expect("jwfw error");
+        fd.logout().expect("logout error");
+    }
+}
