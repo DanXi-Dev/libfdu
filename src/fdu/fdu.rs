@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::{thread, time::Duration};
 
-use reqwest::{header, redirect};
-use reqwest::blocking::{Client, ClientBuilder};
+use reqwest::{header, redirect, Url};
+use reqwest::blocking::{Client, ClientBuilder, RequestBuilder, Response};
 use reqwest::cookie::{CookieStore, Jar};
 use scraper::{Html, Selector};
 use crate::error::SDKError;
@@ -47,7 +48,44 @@ pub trait HttpClient {
             .user_agent(UA)
             .default_headers(headers)
     }
+
     fn get_cookie_store(&self) -> &Arc<Jar>;
+
+    // safely send a request from builder, dealing common errors
+    // like repeat login and throttling
+    fn send(&self, builder: RequestBuilder) -> Result<Response, reqwest::Error> {
+        let req = builder.build()?;
+        if let Some(mut request) = req.try_clone() {  // copy!
+            let mut res = self.get_client().execute(req)?;
+            // copy!
+            let mut buf: Vec<u8> = vec![];
+            res.copy_to(&mut buf)?;
+            let html = String::from_utf8_lossy(&buf).to_string();
+
+            // sleep for a while
+            // will be throttled if duration is 1 second
+            thread::sleep(Duration::from_millis(1500));
+
+            if html.contains("当前用户存在重复登录的情况") {
+                let document = Html::parse_document(html.as_str());
+                for a in document.select(&Selector::parse("a").unwrap()){
+                    if let Some(href) = a.value().attr("href"){
+                        let url_ptr = request.url_mut();
+                        *url_ptr = Url::parse(href).expect("");
+                        println!("repeat login, redirect to {}", request.url().as_str());
+                        return self.get_client().execute(request);
+                    }
+                }
+            } else if html.contains("请不要过快点击") {
+                return self.get_client().execute(request);
+            }
+
+            Ok(res)
+
+        } else {
+            return self.get_client().execute(req);
+        }
+    }
 }
 
 pub trait Account: HttpClient {
