@@ -25,7 +25,7 @@ const LOGIN_URL: &str = "https://uis.fudan.edu.cn/authserver/login";
 const LOGOUT_URL: &str = "https://uis.fudan.edu.cn/authserver/logout";
 const LOGIN_SUCCESS_URL: &str = "https://uis.fudan.edu.cn/authserver/index.do";
 const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML like Gecko) Chrome/91.0.4472.114 Safari/537.36";
-const JWFW_URL: &str = "https://jwfw.fudan.edu.cn/eams/home.action";
+
 
 // This is good practice to use a trait, only if you believe the same methods will be implemented for different structs.
 // Otherwise, DO NOT bother yourself by declaring traits everywhere. Rust is sightly different from certain OOP languages, like Java,
@@ -87,30 +87,13 @@ pub trait Account: HttpClient {
         let res = self.get_client().get(LOGOUT_URL).query(&[("service", "")]).send()?;
 
         if res.status() != 200 {
-            return Err(Error::LogoutError)
+            return Err(Error::LogoutError);
         }
 
         Ok(())
     }
 }
 
-trait JwfwClient: Account {
-    fn get_html(&self) -> reqwest::Result<String> {
-        let client = self.get_client();
-        let mut html = client.get(JWFW_URL).send()?.text()?;
-        let document = Html::parse_document(html.as_str());
-        let selector = Selector::parse(r#"html > body > a"#).unwrap();
-        for element in document.select(&selector) {
-            if element.inner_html().as_str() == "点击此处" {
-                let href = element.value().attr("href");
-                if let Some(key) = href {
-                    html = client.get(key.to_string()).send()?.text()?
-                }
-            }
-        }
-        Ok(html)
-    }
-}
 
 pub struct Fdu {
     client: Client,
@@ -136,8 +119,6 @@ impl Account for Fdu {
     }
 }
 
-impl JwfwClient for Fdu {}
-
 impl Fdu {
     // It is always recommended to use `new()` to create an instance of a struct.
     fn new() -> Self {
@@ -159,6 +140,7 @@ impl Fdu {
 
 #[cfg(test)]
 mod tests {
+    use crate::fdu::jwfw::JwfwClient;
     use super::*;
 
     #[test]
@@ -169,7 +151,7 @@ mod tests {
 
         let mut fd = Fdu::new();
         fd.login(uid.as_str(), pwd.as_str()).expect("login error");
-        println!("{}", fd.get_html().expect("jwfw error"));
+        println!("{}", fd.get_jwfw_homepage().expect("jwfw error"));
         fd.logout().expect("logout error");
     }
 
