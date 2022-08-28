@@ -97,7 +97,7 @@ mod tests {
         unsafe {
             // The `assert_eq!` macro is used to compare two values.
             // If the two values are not equal, the test will fail, and panic! will be called.
-            assert_eq!(CString::from_raw(hello_world()), CString::new("Hello Fudan!").unwrap());
+            assert_eq!(CString::from_raw(hello_world()), CString::new("hello world").unwrap());
             assert_eq!(add(1, 2), 3);
         }
     }
