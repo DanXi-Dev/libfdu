@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use reqwest::{header, redirect};
 use reqwest::blocking::Client;
+use reqwest::cookie::{CookieStore, Jar};
 use scraper::{Html, Selector};
 use crate::error::SDKError;
 use super::fdu_daily;
@@ -22,6 +24,7 @@ const LOGIN_URL: &str = "https://uis.fudan.edu.cn/authserver/login";
 const LOGOUT_URL: &str = "https://uis.fudan.edu.cn/authserver/logout";
 const LOGIN_SUCCESS_URL: &str = "https://uis.fudan.edu.cn/authserver/index.do";
 const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML like Gecko) Chrome/91.0.4472.114 Safari/537.36";
+const JWFW_URL: &str = "https://jwfw.fudan.edu.cn/eams/home.action";
 
 // This is good practice to use a trait, only if you believe the same methods will be implemented for different structs.
 // Otherwise, DO NOT bother yourself by declaring traits everywhere. Rust is sightly different from certain OOP languages, like Java,
@@ -29,6 +32,7 @@ const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (
 // you cannot store them on stack, and you can hardly decide their types at runtime because Rust is statically typed.
 pub trait HttpClient {
     fn get_client(&self) -> &Client;
+    fn get_cookie_store(&self) -> &Arc<Jar>;
 }
 
 type Result<T> = std::result::Result<T, SDKError>;
@@ -80,15 +84,26 @@ pub trait Account: HttpClient {
 
 pub struct Fdu {
     client: Client,
-    uid: String,
-    pwd: String,
+    cookie_store: Arc<Jar>,
+    uid: Option<String>,
+    pwd: Option<String>,
 }
 
-
-impl Account for Fdu {
-    fn set_credentials(&mut self, uid: &str, pwd: &str) {
-        self.uid = uid.to_string();
-        self.pwd = pwd.to_string();
+trait JwfwClient: Account {
+    fn get_html(&self) -> reqwest::Result<String> {
+        let client = self.get_client();
+        let mut html = client.get(JWFW_URL).send()?.text()?;
+        let document = Html::parse_document(html.as_str());
+        let selector = Selector::parse(r#"html > body > a"#).unwrap();
+        for element in document.select(&selector) {
+            if element.inner_html().as_str() == "点击此处" {
+                let href = element.value().attr("href");
+                if let Some(key) = href {
+                    html = client.get(key.to_string()).send()?.text()?
+                }
+            }
+        }
+        Ok(html)
     }
 }
 
@@ -96,7 +111,20 @@ impl HttpClient for Fdu {
     fn get_client(&self) -> &Client {
         &self.client
     }
+
+    fn get_cookie_store(&self) -> &Arc<Jar> {
+        &self.cookie_store
+    }
 }
+
+impl Account for Fdu {
+    fn set_credentials(&mut self, uid: &str, pwd: &str) {
+        self.uid = Some(uid.to_string());
+        self.pwd = Some(pwd.to_string());
+    }
+}
+
+impl JwfwClient for Fdu {}
 
 impl Fdu {
     // It is always recommended to use `new()` to create an instance of a struct.
@@ -108,8 +136,10 @@ impl Fdu {
         headers.insert("Connection", header::HeaderValue::from_static("keep-alive"));
         headers.insert("DNT", header::HeaderValue::from_static("1"));
 
+        let cookie_store = Arc::new(Jar::default());
+
         let client = Client::builder()
-            .cookie_store(true)
+            .cookie_provider(Arc::clone(&cookie_store))
             .user_agent(UA)
             .default_headers(headers)
             .build()
@@ -117,8 +147,9 @@ impl Fdu {
 
         Self {
             client,
-            uid: String::default(),
-            pwd: String::default(),
+            cookie_store,
+            uid: None,
+            pwd: None,
         }
     }
 }
@@ -136,6 +167,7 @@ mod tests {
 
         let mut fd = Fdu::new();
         fd.login(uid.as_str(), pwd.as_str()).expect("login error");
+        println!("{}", fd.get_html().expect("jwfw error"));
         fd.logout().expect("logout error");
     }
 
