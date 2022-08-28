@@ -2,11 +2,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use reqwest::{header, redirect};
-use reqwest::blocking::Client;
+use reqwest::blocking::{Client, ClientBuilder};
 use reqwest::cookie::{CookieStore, Jar};
 use scraper::{Html, Selector};
 use crate::error::SDKError;
 use super::fdu_daily;
+use crate::error::Error;
 
 // `const` declares a constant, which will be replaced with its value during compilation.
 //
@@ -32,15 +33,27 @@ const JWFW_URL: &str = "https://jwfw.fudan.edu.cn/eams/home.action";
 // you cannot store them on stack, and you can hardly decide their types at runtime because Rust is statically typed.
 pub trait HttpClient {
     fn get_client(&self) -> &Client;
+
+    fn client_builder() -> ClientBuilder {
+        let mut headers = header::HeaderMap::new();
+        headers.insert("Accept", header::HeaderValue::from_static("application/json;text/html;q=0.9,*/*;q=0.8"));
+        headers.insert("Accept-Language", header::HeaderValue::from_static("zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7"));
+        headers.insert("Cache-Control", header::HeaderValue::from_static("no-cache"));
+        headers.insert("Connection", header::HeaderValue::from_static("keep-alive"));
+        headers.insert("DNT", header::HeaderValue::from_static("1"));
+
+        Client::builder()
+            .cookie_store(true)
+            .user_agent(UA)
+            .default_headers(headers)
+    }
     fn get_cookie_store(&self) -> &Arc<Jar>;
 }
-
-type Result<T> = std::result::Result<T, SDKError>;
 
 pub trait Account: HttpClient {
     fn set_credentials(&mut self, uid: &str, pwd: &str);
 
-    fn login(&mut self, uid: &str, pwd: &str) -> Result<()> {
+    fn login(&mut self, uid: &str, pwd: &str) -> Result<(), Error> {
         self.set_credentials(uid, pwd);
 
         let mut payload = HashMap::new();
@@ -65,28 +78,20 @@ pub trait Account: HttpClient {
         if res.url().as_str() == LOGIN_SUCCESS_URL {
             Ok(())
         } else {
-            Err(SDKError::new("Login failed".to_string()))
+            Err(Error::LoginError)
         }
     }
 
-    fn logout(&self) -> Result<()> {
+    fn logout(&self) -> Result<(), Error> {
         // TODO: logout service
         let res = self.get_client().get(LOGOUT_URL).query(&[("service", "")]).send()?;
 
-        if res.status() != 302 {
-            // TODO: custom error
-            return Err(SDKError::new("Logout failed".to_string()));
+        if res.status() != 200 {
+            return Err(Error::LogoutError)
         }
 
         Ok(())
     }
-}
-
-pub struct Fdu {
-    client: Client,
-    cookie_store: Arc<Jar>,
-    uid: Option<String>,
-    pwd: Option<String>,
 }
 
 trait JwfwClient: Account {
@@ -105,6 +110,13 @@ trait JwfwClient: Account {
         }
         Ok(html)
     }
+}
+
+pub struct Fdu {
+    client: Client,
+    cookie_store: Arc<Jar>,
+    uid: Option<String>,
+    pwd: Option<String>,
 }
 
 impl HttpClient for Fdu {
@@ -129,19 +141,11 @@ impl JwfwClient for Fdu {}
 impl Fdu {
     // It is always recommended to use `new()` to create an instance of a struct.
     fn new() -> Self {
-        let mut headers = header::HeaderMap::new();
-        headers.insert("Accept", header::HeaderValue::from_static("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"));
-        headers.insert("Accept-Language", header::HeaderValue::from_static("zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7"));
-        headers.insert("Cache-Control", header::HeaderValue::from_static("no-cache"));
-        headers.insert("Connection", header::HeaderValue::from_static("keep-alive"));
-        headers.insert("DNT", header::HeaderValue::from_static("1"));
-
         let cookie_store = Arc::new(Jar::default());
-
-        let client = Client::builder()
+        let client = Self::client_builder()
+            // do not auto redirect here to get 302 status code
+            .redirect(redirect::Policy::none())
             .cookie_provider(Arc::clone(&cookie_store))
-            .user_agent(UA)
-            .default_headers(headers)
             .build()
             .expect("client build failed");
 
