@@ -98,8 +98,8 @@ pub trait HttpClient {
 // fn get_longest(a: &str, b: &str) -> &str; // Return the longest string between a and b.
 //
 // Naturally, we can see that:
-// `get_longest` requires the return value to live longer than both [a] and [b],
-// while `get_before` requires the return value to just live longer than [text].
+// `get_longest` requires both [a] and [b] to live longer than the return value,
+// while `get_before` requires just [text] to live longer than the return value.
 //
 // See? It is hard for somebody to guess a reasonable lifetime for return values. So you need to do it yourself:
 // fn get_longest<'a>(a: &'a str, b: &'a str) -> &'a str;
