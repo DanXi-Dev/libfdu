@@ -67,11 +67,11 @@ impl FduInterface for Fdu {
         // get some tokens
         let html = self.client.get(LOGIN_URL).send()?.text()?;
         let document = Html::parse_document(html.as_str());
-        let selector = Selector::parse("input[type=\"hidden\"]").unwrap();
+        let selector = Selector::parse(r#"input[type="hidden"]"#).unwrap();
         for element in document.select(&selector) {
             let name = element.value().attr("name");
-            if name.is_some() {
-                payload.insert(name.unwrap(), element.value().attr("value").unwrap_or_default());
+            if let Some(key) = name {
+                payload.insert(key, element.value().attr("value").unwrap_or_default());
             }
         }
 
@@ -83,7 +83,7 @@ impl FduInterface for Fdu {
             panic!("login error");
         }
 
-        return Ok(());
+        Ok(())
     }
 
     fn logout(&self) -> Result<(), reqwest::Error> {
@@ -95,10 +95,11 @@ impl FduInterface for Fdu {
             panic!("logout error");
         }
 
-        return Ok(());
+        Ok(())
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
