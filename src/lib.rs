@@ -1,4 +1,5 @@
 mod fdu;
+mod error;
 
 use std::ffi::{CStr, CString};
 

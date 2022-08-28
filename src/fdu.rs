@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use reqwest::{header, redirect};
 use reqwest::blocking::{Client, ClientBuilder};
 use scraper::{Html, Selector};
+use crate::error::Error;
 
 // `const` declares a constant, which will be replaced with its value during compilation.
 //
@@ -45,7 +46,7 @@ pub trait HttpClient {
 pub trait Account: HttpClient {
     fn set_credentials(&mut self, uid: &str, pwd: &str);
 
-    fn login(&mut self, uid: &str, pwd: &str) -> Result<(), reqwest::Error> {
+    fn login(&mut self, uid: &str, pwd: &str) -> Result<(), Error> {
         self.set_credentials(uid, pwd);
 
         let mut payload = HashMap::new();
@@ -67,20 +68,18 @@ pub trait Account: HttpClient {
         let res = self.get_client().post(LOGIN_URL).form(&payload).send()?;
 
         if res.status() != 302 {
-            // TODO: custom error
-            panic!("login error");
+            return Err(Error::LoginError)
         }
 
         Ok(())
     }
 
-    fn logout(&self) -> Result<(), reqwest::Error> {
+    fn logout(&self) -> Result<(), Error> {
         // TODO: logout service
         let res = self.get_client().get(LOGOUT_URL).query(&[("service", "")]).send()?;
 
         if res.status() != 302 {
-            // TODO: custom error
-            panic!("logout error");
+            return Err(Error::LogoutError)
         }
 
         Ok(())
