@@ -5,7 +5,6 @@ use crate::error::*;
 
 const GET_INFO_URL: &str = "https://zlapp.fudan.edu.cn/ncov/wap/fudan/get-info";
 
-type Result<T> = std::result::Result<T, SDKError>;
 
 pub fn get_history_info(fdu: &Fdu) -> Result<String> {
     Ok(fdu.get_client().get(GET_INFO_URL).send()?.text()?)
@@ -17,7 +16,6 @@ pub fn has_tick(fdu: &Fdu) -> Result<bool> {
 
     // Stand for format error.
     let fe = |key: &str| SDKError::new(format!("Key {} is unable to be parsed in history json.", key));
-
 
 
     // 2022-08-28 (@w568w):
@@ -46,7 +44,7 @@ pub fn has_tick(fdu: &Fdu) -> Result<bool> {
         return Err(date.unwrap_err());
     }
 
-    // Or we can use `match` to do the same thing:
+    // Or we can use `match` to do the same thing, but even less readable:
     // (Don't be afraid to use the same name for different type variables! It's just a convention.)
     //
     // let json = history.as_object().ok_or(fe("history"))?.get("d");
