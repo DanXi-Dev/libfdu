@@ -162,7 +162,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn login_and_out() {
+    fn test_login_and_out() {
         dotenv::dotenv().ok();  // load env from .env file
         let uid = std::env::var("UID").expect("environment variable UID not set");
         let pwd = std::env::var("PWD").expect("environment variable PWD not set");
@@ -171,6 +171,12 @@ mod tests {
         fd.login(uid.as_str(), pwd.as_str()).expect("login error");
         println!("{}", fd.get_html().expect("jwfw error"));
         fd.logout().expect("logout error");
+    }
+
+    #[test]
+    fn test_wrong_login() {
+        let mut fd = Fdu::new();
+        fd.login("123", "123").expect_err("expect error");
     }
 
     #[test]
