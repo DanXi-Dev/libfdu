@@ -27,3 +27,5 @@ serde = { version = "1.0.144", features = ["derive"] }
 serde_json = "1.0.85"
 # 日期时间支持
 chrono = "0.4.19"
+# 正则表达式支持
+regex = "1.6.0"
