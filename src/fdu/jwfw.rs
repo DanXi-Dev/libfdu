@@ -30,34 +30,33 @@ table0.activities[index][table0.activities[index].length]=activity;
  */
 // the number in "index =2*unitCount+0;", "index =1*unitCount+8;", etc. implies the day and time for the course in the current week.
 fn parse_course_time(html: &String) -> HashMap<String, Vec<(i32, i32)>> {
-    let regexCourse = Regex::new(r##"activity = new TaskActivity\("\d+","\S+","\d+\((\w+.\w+)\)","\S+\(\w+.\w+\)","\d+","\w+","[01]+"\);((?:\s*index =\d+\*unitCount\+\d+;\s*table0.activities\[index\]\[table0.activities\[index\].length\]=activity;)+)"##).unwrap();
+    let regex_course = Regex::new(r##"activity = new TaskActivity\("\d+","\S+","\d+\((\w+.\w+)\)","\S+\(\w+.\w+\)","\d+","\w+","[01]+"\);((?:\s*index =\d+\*unitCount\+\d+;\s*table0.activities\[index\]\[table0.activities\[index\].length\]=activity;)+)"##).unwrap();
     let mut ret = HashMap::new();
-    for capCourse in regexCourse.captures_iter(html.as_str()) {
+    for cap_course in regex_course.captures_iter(html.as_str()) {
         // Get the course code
         // e.g. "COMP130004.03"
-        let courseCode = capCourse[1].to_string();
+        let course_code = cap_course[1].to_string();
         // Get the data for each group, which is like
         /*
         index =2*unitCount+0;
-        table0.activities[index][table0.activities[index].length]=activity;
+        table0.activities[index][table0.activities
+        [index].length]=activity;
         index =2*unitCount+1;
         table0.activities[index][table0.activities[index].length]=activity;
         index =2*unitCount+2;
         table0.activities[index][table0.activities[index].length]=activity;
         */
-        let courseData = &capCourse[2];
-        let regexLesson = Regex::new(r##"index =(\d+)\*unitCount\+(\d+);"##).unwrap();
-        for capLesson in regexLesson.captures_iter(courseData) {
-            let dayNumber: &i32 = &capLesson[1].parse().unwrap();
-            let timeNumber: &i32 = &capLesson[2].parse().unwrap();
-            match ret.get(&courseCode) {
+        let course_data = &cap_course[2];
+        let regex_lesson = Regex::new(r##"index =(\d+)\*unitCount\+(\d+);"##).unwrap();
+        for cap_lesson in regex_lesson.captures_iter(course_data) {
+            let day_number: &i32 = &cap_lesson[1].parse().unwrap();
+            let time_number: &i32 = &cap_lesson[2].parse().unwrap();
+            match ret.get_mut(&course_code) {
                 None => {
-                    ret.insert(courseCode.to_string(), vec![(*dayNumber, *timeNumber)]);
+                    ret.insert(course_code.to_string(), vec![(*day_number, *time_number)]);
                 }
-                Some(courseTime) => {
-                    let mut courseTimeClone = courseTime.clone();
-                    courseTimeClone.push((*dayNumber, *timeNumber));
-                    ret.insert(courseCode.to_string(), courseTimeClone);
+                Some(x) => {
+                    x.push((*day_number, *time_number));
                 }
             }
         }
