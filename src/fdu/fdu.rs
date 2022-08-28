@@ -143,8 +143,6 @@ impl Fdu {
     fn new() -> Self {
         let cookie_store = Arc::new(Jar::default());
         let client = Self::client_builder()
-            // do not auto redirect here to get 302 status code
-            .redirect(redirect::Policy::none())
             .cookie_provider(Arc::clone(&cookie_store))
             .build()
             .expect("client build failed");
