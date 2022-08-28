@@ -6,11 +6,29 @@ use scraper::{Html, Selector};
 use crate::fdu::fdu::{Account, Fdu};
 
 const JWFW_URL: &str = "https://jwfw.fudan.edu.cn/eams/home.action";
-const JWFW_COURSE_TABLE_URL: &str = "https://jwfw.fudan.edu.cn/eams/courseTableForStd!courseTable.action";
+const JWFW_COURSE_TABLE_QUERY_URL: &str = "https://jwfw.fudan.edu.cn/eams/courseTableForStd!courseTable.action";
+const JWFW_COURSE_TABLE_MAIN_URL: &str = "https://jwfw.fudan.edu.cn/eams/courseTableForStd.action";
 
 impl JwfwClient for Fdu {}
 
-// Parse the course time data from the javascript part of the raw html.
+// Parse the ids(a value related to student id) from courseTableForStd.action
+fn parse_ids(html: &String) -> String {
+    let regex = Regex::new(r##"bg.form.addInput\(form,"ids","(\d+)"\);"##).unwrap();
+    let cap = regex.captures_iter(html).next().unwrap();
+    cap[1].to_string()
+}
+
+#[derive(Debug)]
+pub struct CourseData {
+    id: String,
+    teacher: String,
+    name_with_course_id: String,
+    classroom: String,
+    weeks: Vec<i32>,
+    time: Vec<(i32, i32)>,
+}
+
+// Parse the course data from the javascript part of the raw html.
 // The raw data for course time is like
 /*
 activity = new TaskActivity("155165","陈彤兵","42071(COMP130004.03)","数据结构(COMP130004.03)","320","HGX304","01111111111011111000000000000000000000000000000000000");
@@ -29,13 +47,26 @@ index =1*unitCount+9;
 table0.activities[index][table0.activities[index].length]=activity;
  */
 // the number in "index =2*unitCount+0;", "index =1*unitCount+8;", etc. implies the day and time for the course in the current week.
-fn parse_course_time(html: &String) -> HashMap<String, Vec<(i32, i32)>> {
-    let regex_course = Regex::new(r##"activity = new TaskActivity\("\d+","\S+","\d+\((\w+.\w+)\)","\S+\(\w+.\w+\)","\d+","\w+","[01]+"\);((?:\s*index =\d+\*unitCount\+\d+;\s*table0.activities\[index\]\[table0.activities\[index\].length\]=activity;)+)"##).unwrap();
-    let mut ret = HashMap::new();
+fn parse_course_data(html: &String) -> Vec<CourseData> {
+    let regex_course = Regex::new(r##"activity = new TaskActivity\("(\d+)","(\S+)","\d+\(\w+.\w+\)","(\S+\(\w+.\w+\))","\d+","(\S+)","([01]+)"\);((?:\s*index =\d+\*unitCount\+\d+;\s*table0.activities\[index]\[table0.activities\[index].length]=activity;)+)"##).unwrap();
+    let mut ret = Vec::new();
     for cap_course in regex_course.captures_iter(html.as_str()) {
-        // Get the course code
-        // e.g. "COMP130004.03"
-        let course_code = cap_course[1].to_string();
+
+        // Get the week info for the course
+        // e.g. "01111111111011111000000000000000000000000000000000000"
+        // The position with value 1 means there's a lesson in the week of its index.
+        let course_week_info = cap_course[5].to_string();
+
+        // Convert the week info to vector.
+        // e.g. "01111111111011111000000000000000000000000000000000000" converts to vec![1,2,3,4,5,6,7,8,9,10,12,13,14,15,16]
+        let mut weeks: Vec<i32> = Vec::new();
+        for (i, c) in course_week_info.chars().enumerate() {
+            if c == '1' {
+                weeks.push(i as i32);
+            }
+        }
+
+
         // Get the data for each group, which is like
         /*
         index =2*unitCount+0;
@@ -46,22 +77,24 @@ fn parse_course_time(html: &String) -> HashMap<String, Vec<(i32, i32)>> {
         index =2*unitCount+2;
         table0.activities[index][table0.activities[index].length]=activity;
         */
-        let course_data = &cap_course[2];
+
+        let mut time: Vec<(i32, i32)> = Vec::new();
+        let course_data = &cap_course[6];
         let regex_lesson = Regex::new(r##"index =(\d+)\*unitCount\+(\d+);"##).unwrap();
         for cap_lesson in regex_lesson.captures_iter(course_data) {
             let day_number: &i32 = &cap_lesson[1].parse().unwrap();
             let time_number: &i32 = &cap_lesson[2].parse().unwrap();
-            match ret.get_mut(&course_code) {
-                None => {
-                    ret.insert(course_code.to_string(), vec![(*day_number, *time_number)]);
-                }
-                Some(x) => {
-                    x.push((*day_number, *time_number));
-                }
-            }
+            time.push((*day_number, *time_number));
         }
+        ret.push(CourseData {
+            id: cap_course[1].to_string(),
+            teacher: cap_course[2].to_string(),
+            name_with_course_id: cap_course[3].to_string(),
+            classroom: cap_course[4].to_string(),
+            weeks,
+            time,
+        })
     }
-    println!("{:?}", ret);
     ret
 }
 
@@ -82,19 +115,24 @@ pub trait JwfwClient: Account {
         Ok(html)
     }
 
-    fn get_course_table(&self) -> reqwest::Result<()> {
+    fn get_course_table(&self) -> reqwest::Result<Vec<CourseData>> {
         let client = self.get_client();
+
+        // First visit the courseTableForStd.action to get ids(a value related to student id)
+        let main_html = client.get(JWFW_COURSE_TABLE_MAIN_URL).send()?.text()?;
+        let ids = parse_ids(&main_html);
+
         let mut payload = HashMap::new();
         payload.insert("ignoreHead", "1");
         payload.insert("setting.kind", "std");
         payload.insert("startWeek", "1");
         payload.insert("project.id", "1");
         payload.insert("semester.id", "385");
-        payload.insert("ids", "403028");
-        let html = client.post(JWFW_COURSE_TABLE_URL).form(&payload).send()?.text()?;
-        println!("{}", html);
-        parse_course_time(&html);
-        Ok(())
+        payload.insert("ids", ids.as_str());
+        let query_html = client.post(JWFW_COURSE_TABLE_QUERY_URL).form(&payload).send()?.text()?;
+        let course_data = parse_course_data(&query_html);
+        println!("{:?}", course_data);
+        Ok(course_data)
     }
 }
 
