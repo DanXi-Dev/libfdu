@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use reqwest::{header, redirect};
-use reqwest::blocking::Client;
+use reqwest::blocking::{Client, ClientBuilder};
 use scraper::{Html, Selector};
 
 // `const` declares a constant, which will be replaced with its value during compilation.
@@ -24,11 +24,25 @@ const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (
 // Otherwise, DO NOT bother yourself by declaring traits everywhere. Rust is sightly different from certain OOP languages, like Java,
 // and it does not support polymorphism very well. It is hard to store different structs with same trait in a single list,
 // you cannot store them on stack, and you can hardly decide their types at runtime because Rust is statically typed.
-trait HttpClient {
+pub trait HttpClient {
     fn get_client(&self) -> &Client;
+
+    fn client_builder() -> ClientBuilder {
+        let mut headers = header::HeaderMap::new();
+        headers.insert("Accept", header::HeaderValue::from_static("application/json;text/html;q=0.9,*/*;q=0.8"));
+        headers.insert("Accept-Language", header::HeaderValue::from_static("zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7"));
+        headers.insert("Cache-Control", header::HeaderValue::from_static("no-cache"));
+        headers.insert("Connection", header::HeaderValue::from_static("keep-alive"));
+        headers.insert("DNT", header::HeaderValue::from_static("1"));
+
+        Client::builder()
+            .cookie_store(true)
+            .user_agent(UA)
+            .default_headers(headers)
+    }
 }
 
-trait Account: HttpClient {
+pub trait Account: HttpClient {
     fn set_credentials(&mut self, uid: &str, pwd: &str);
 
     fn login(&mut self, uid: &str, pwd: &str) -> Result<(), reqwest::Error> {
@@ -73,10 +87,26 @@ trait Account: HttpClient {
     }
 }
 
-struct Fdu {
+pub struct Fdu {
     client: Client,
     uid: String,
     pwd: String,
+}
+
+impl Fdu {
+    // It is always recommended to use `new()` to create an instance of a struct.
+    pub fn new() -> Self {
+        let client = Self::client_builder()
+            // do not auto redirect here to get 302 status code
+            .redirect(redirect::Policy::none())
+            .build()
+            .expect("client build failed");
+        Self {
+            client,
+            uid: "".to_string(),
+            pwd: "".to_string(),
+        }
+    }
 }
 
 impl HttpClient for Fdu {
@@ -89,32 +119,6 @@ impl Account for Fdu {
     fn set_credentials(&mut self, uid: &str, pwd: &str) {
         self.uid = uid.to_string();
         self.pwd = pwd.to_string();
-    }
-}
-
-impl Fdu {
-    // It is always recommended to use `new()` to create an instance of a struct.
-    fn new() -> Self {
-        let mut headers = header::HeaderMap::new();
-        headers.insert("Accept", header::HeaderValue::from_static("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"));
-        headers.insert("Accept-Language", header::HeaderValue::from_static("zh-CN,zh;q=0.9,en-US;q=0.8,en;q=0.7"));
-        headers.insert("Cache-Control", header::HeaderValue::from_static("no-cache"));
-        headers.insert("Connection", header::HeaderValue::from_static("keep-alive"));
-        headers.insert("DNT", header::HeaderValue::from_static("1"));
-
-        let client = Client::builder()
-            .cookie_store(true)
-            .redirect(redirect::Policy::none())
-            .user_agent(UA)
-            .default_headers(headers)
-            .build()
-            .expect("client build failed");
-
-        Self {
-            client,
-            uid: "".to_string(),
-            pwd: "".to_string(),
-        }
     }
 }
 
