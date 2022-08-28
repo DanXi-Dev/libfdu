@@ -25,13 +25,72 @@ const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (
 // Otherwise, DO NOT bother yourself by declaring traits everywhere. Rust is sightly different from certain OOP languages, like Java,
 // and it does not support polymorphism very well. It is hard to store different structs with same trait in a single list,
 // you cannot store them on stack, and you can hardly decide their types at runtime because Rust is statically typed.
-trait FduInterface {
-    fn login(&self, uid: &str, pwd: &str) -> Result<(), reqwest::Error>;
-    fn logout(&self) -> Result<(), reqwest::Error>;
+trait HttpClient {
+    fn get_client(&self) -> &Client;
+}
+
+trait Account: HttpClient {
+    fn set_credentials(&mut self, uid: &str, pwd: &str);
+
+    fn login(&mut self, uid: &str, pwd: &str) -> Result<(), reqwest::Error> {
+        self.set_credentials(uid, pwd);
+
+        let mut payload = HashMap::new();
+        payload.insert("username", uid);
+        payload.insert("password", pwd);
+
+        // get some tokens
+        let html = self.get_client().get(LOGIN_URL).send()?.text()?;
+        let document = Html::parse_document(html.as_str());
+        let selector = Selector::parse(r#"input[type="hidden"]"#).unwrap();
+        for element in document.select(&selector) {
+            let name = element.value().attr("name");
+            if let Some(key) = name {
+                payload.insert(key, element.value().attr("value").unwrap_or_default());
+            }
+        }
+
+        // send login request
+        let res = self.get_client().post(LOGIN_URL).form(&payload).send()?;
+
+        if res.status() != 302 {
+            // TODO: custom error
+            panic!("login error");
+        }
+
+        Ok(())
+    }
+
+    fn logout(&self) -> Result<(), reqwest::Error> {
+        // TODO: logout service
+        let res = self.get_client().get(LOGOUT_URL).query(&[("service", "")]).send()?;
+
+        if res.status() != 302 {
+            // TODO: custom error
+            panic!("logout error");
+        }
+
+        Ok(())
+    }
 }
 
 struct Fdu {
-    pub client: Client,
+    client: Client,
+    uid: String,
+    pwd: String,
+}
+
+impl HttpClient for Fdu {
+    fn get_client(&self) -> &Client {
+        &self.client
+    }
+}
+
+impl Account for Fdu {
+    fn set_credentials(&mut self, uid: &str, pwd: &str) {
+        self.uid = uid.to_string();
+        self.pwd = pwd.to_string();
+    }
 }
 
 impl Fdu {
@@ -54,50 +113,12 @@ impl Fdu {
 
         Self {
             client,
+            uid: "".to_string(),
+            pwd: "".to_string(),
         }
     }
 }
 
-impl FduInterface for Fdu {
-    fn login(&self, uid: &str, pwd: &str) -> Result<(), reqwest::Error> {
-        let mut payload = HashMap::new();
-        payload.insert("username", uid);
-        payload.insert("password", pwd);
-
-        // get some tokens
-        let html = self.client.get(LOGIN_URL).send()?.text()?;
-        let document = Html::parse_document(html.as_str());
-        let selector = Selector::parse(r#"input[type="hidden"]"#).unwrap();
-        for element in document.select(&selector) {
-            let name = element.value().attr("name");
-            if let Some(key) = name {
-                payload.insert(key, element.value().attr("value").unwrap_or_default());
-            }
-        }
-
-        // send login request
-        let res = self.client.post(LOGIN_URL).form(&payload).send()?;
-
-        if res.status() != 302 {
-            // TODO: custom error
-            panic!("login error");
-        }
-
-        Ok(())
-    }
-
-    fn logout(&self) -> Result<(), reqwest::Error> {
-        // TODO: logout service
-        let res = self.client.get(LOGOUT_URL).query(&[("service", "")]).send()?;
-
-        if res.status() != 302 {
-            // TODO: custom error
-            panic!("logout error");
-        }
-
-        Ok(())
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -108,7 +129,7 @@ mod tests {
         let uid = env::var("UID").expect("environment variable UID not set");
         let pwd = env::var("PWD").expect("environment variable PWD not set");
 
-        let fd = Fdu::new();
+        let mut fd = Fdu::new();
         fd.login(uid.as_str(), pwd.as_str()).expect("login error");
         fd.logout().expect("logout error");
     }
