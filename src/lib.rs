@@ -1,4 +1,6 @@
+#![feature(try_blocks)]
 mod fdu;
+mod error;
 
 use std::ffi::{CStr, CString};
 
@@ -70,12 +72,6 @@ pub extern "C" fn get_url(url: *const c_char) -> *mut c_char {
     CString::new(body).unwrap().into_raw()
 }
 
-// To prevent the linker breaking when the library is built without stdlib,
-// we need to provide a dummy function.
-//
-// See it? The exclamation mark means that the function is diverging and will never return.
-#[allow(dead_code)]
-pub extern "C" fn fix_linking_when_not_using_stdlib() -> ! { panic!() }
 
 // Test is an important part of the project.
 // You can run all the tests by running `cargo test`.

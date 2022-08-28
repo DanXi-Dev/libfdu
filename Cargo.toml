@@ -9,16 +9,21 @@ build = "build.rs"
 # 指定编译类型为 C 风格的动态链接库（C Dynamic Library）
 crate-type = ["cdylib"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [build-dependencies]
 # 生成头文件
 cbindgen = "0.24.2"
 
 [dependencies]
+# 支持加载外部 .env 文件
 dotenv = "0.15.0"
 # 提供 C 类型
 libc = "0.2.132"
 # 阻塞的网络请求库
 reqwest = { version = "0.11.11", features = ["blocking", "json", "cookies"] }
+# HTML 解析
 scraper = "0.13.0"
-tokio = "1.20.1"
+# JSON 支持
+serde = { version = "1.0.144", features = ["derive"] }
+serde_json = "1.0.85"
+# 日期时间支持
+chrono = "0.4.19"

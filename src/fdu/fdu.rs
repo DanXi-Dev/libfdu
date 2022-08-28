@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use reqwest::{header, redirect};
 use reqwest::blocking::Client;
 use scraper::{Html, Selector};
+use crate::error::SDKError;
+use super::fdu_daily;
 
 // `const` declares a constant, which will be replaced with its value during compilation.
 //
@@ -18,20 +20,23 @@ use scraper::{Html, Selector};
 // Even though you can declare a global variable with `static mut` keyword, it is unsafe and not recommended.
 const LOGIN_URL: &str = "https://uis.fudan.edu.cn/authserver/login";
 const LOGOUT_URL: &str = "https://uis.fudan.edu.cn/authserver/logout";
+const LOGIN_SUCCESS_URL: &str = "https://uis.fudan.edu.cn/authserver/index.do";
 const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML like Gecko) Chrome/91.0.4472.114 Safari/537.36";
 
 // This is good practice to use a trait, only if you believe the same methods will be implemented for different structs.
 // Otherwise, DO NOT bother yourself by declaring traits everywhere. Rust is sightly different from certain OOP languages, like Java,
 // and it does not support polymorphism very well. It is hard to store different structs with same trait in a single list,
 // you cannot store them on stack, and you can hardly decide their types at runtime because Rust is statically typed.
-trait HttpClient {
+pub trait HttpClient {
     fn get_client(&self) -> &Client;
 }
 
-trait Account: HttpClient {
+type Result<T> = std::result::Result<T, SDKError>;
+
+pub trait Account: HttpClient {
     fn set_credentials(&mut self, uid: &str, pwd: &str);
 
-    fn login(&mut self, uid: &str, pwd: &str) -> Result<(), reqwest::Error> {
+    fn login(&mut self, uid: &str, pwd: &str) -> Result<()> {
         self.set_credentials(uid, pwd);
 
         let mut payload = HashMap::new();
@@ -52,43 +57,44 @@ trait Account: HttpClient {
         // send login request
         let res = self.get_client().post(LOGIN_URL).form(&payload).send()?;
 
-        if res.status() != 302 {
-            // TODO: custom error
-            panic!("login error");
+        // check if login is successful
+        if res.url().as_str() == LOGIN_SUCCESS_URL {
+            Ok(())
+        } else {
+            Err(SDKError::new("Login failed".to_string()))
         }
-
-        Ok(())
     }
 
-    fn logout(&self) -> Result<(), reqwest::Error> {
+    fn logout(&self) -> Result<()> {
         // TODO: logout service
         let res = self.get_client().get(LOGOUT_URL).query(&[("service", "")]).send()?;
 
         if res.status() != 302 {
             // TODO: custom error
-            panic!("logout error");
+            return Err(SDKError::new("Logout failed".to_string()));
         }
 
         Ok(())
     }
 }
 
-struct Fdu {
+pub struct Fdu {
     client: Client,
     uid: String,
     pwd: String,
 }
 
-impl HttpClient for Fdu {
-    fn get_client(&self) -> &Client {
-        &self.client
-    }
-}
 
 impl Account for Fdu {
     fn set_credentials(&mut self, uid: &str, pwd: &str) {
         self.uid = uid.to_string();
         self.pwd = pwd.to_string();
+    }
+}
+
+impl HttpClient for Fdu {
+    fn get_client(&self) -> &Client {
+        &self.client
     }
 }
 
@@ -104,7 +110,6 @@ impl Fdu {
 
         let client = Client::builder()
             .cookie_store(true)
-            .redirect(redirect::Policy::none())
             .user_agent(UA)
             .default_headers(headers)
             .build()
@@ -112,8 +117,8 @@ impl Fdu {
 
         Self {
             client,
-            uid: "".to_string(),
-            pwd: "".to_string(),
+            uid: String::default(),
+            pwd: String::default(),
         }
     }
 }
@@ -132,5 +137,15 @@ mod tests {
         let mut fd = Fdu::new();
         fd.login(uid.as_str(), pwd.as_str()).expect("login error");
         fd.logout().expect("logout error");
+    }
+
+    #[test]
+    fn check_fdu_daily() {
+        dotenv::dotenv().ok();
+        let uid = std::env::var("UID").expect("environment variable UID not set");
+        let pwd = std::env::var("PWD").expect("environment variable PWD not set");
+        let mut fd = Fdu::new();
+        fd.login(uid.as_str(), pwd.as_str()).expect("login error");
+        fdu_daily::has_tick(&fd).unwrap();
     }
 }
