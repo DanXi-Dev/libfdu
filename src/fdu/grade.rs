@@ -78,7 +78,7 @@ impl Grade {
         const GRADE_URL: &str = "https://my.fudan.edu.cn/list/bks_xx_cj";
         let mut grades: Vec<CourseGrade> = Vec::new();
 
-        let html = self.get_client().get(GRADE_URL).send()?.text()?;
+        let html = self.send_and_get_text(self.get_client().get(GRADE_URL))?;
         let document = Html::parse_document(html.as_str());
         for tr in document.select(&Selector::parse("tbody tr").unwrap()) {
             let v = tr.text().collect::<Vec<_>>();
@@ -113,29 +113,47 @@ impl Grade {
         Ok(self.grades[..i].to_vec())
     }
 
-    fn get_gpa(&mut self) -> Result<GPA, Error> {
+    fn get_gpa(&mut self) -> GPA {
+        let result = self.get_gpa_from_jwfw();
+        if let Ok(gpa) = result {
+            return gpa;
+        }
+        println!("get gpa from jwfw failed, calculate manually");
 
-        // get major id
-        // let mut major_id = "";
-        // const GPA_URL: &str = "https://jwfw.fudan.edu.cn/eams/myActualGpa.action";
-        // let html = self.send(self.get_client().get(GPA_URL))?.text()?;
-        // let document = Html::parse_document(html.as_str());
-        // let selector = Selector::parse(r#"option[selected="selected"]"#).unwrap();
-        // for element in document.select(&selector) {
-        //     if let Some(value) = element.value().attr("value") {
-        //         major_id = value;
-        //         break;
-        //     }
-        // }
+        let result = self.get_gpa_from_grades();
+        if let Ok(gpa) = result {
+            return gpa;
+        }
+        println!("get gpa from grades failed");
+        GPA::default()
+    }
 
+    fn get_gpa_from_grades(&mut self) -> Result<GPA, Error> {
+        let grades = self.get_all_grades()?;
+        if grades.len() == 0 {
+            return Ok(GPA::default());
+        }
+        let mut gpa = GPA::default();
+        for grade in grades {
+            if grade.grade.eq("P"){ // P isn't calculated
+                continue;
+            }
+            gpa.gpa += grade.point * grade.credit;
+            gpa.credits += grade.credit;
+        }
+        gpa.gpa /= gpa.credits;
+        Ok(gpa)
+    }
+
+    fn get_gpa_from_jwfw(&mut self) -> Result<GPA, Error> {
         let mut gpa = GPA::default();
         let mut major = "";
 
         // get data
         const GPA_SEARCH_URL: &str = "https://jwfw.fudan.edu.cn/eams/myActualGpa!search.action";
-        let html = self.send(
+        let html = self.send_and_get_text(
             self.get_client().get(GPA_SEARCH_URL)
-        )?.text()?;
+        )?;
         let document = Html::parse_document(html.as_str());
         let selector = Selector::parse("tbody tr").unwrap();
 
@@ -225,8 +243,14 @@ mod tests {
         let mut grade = Grade::new();
         grade.fdu.login(uid.as_str(), pwd.as_str()).unwrap();
 
-        let gpa = grade.get_gpa().expect("get gpa fail");
-        println!("{}", gpa);
+        let gpa = grade.get_gpa_from_jwfw().expect("get gpa fail");
+        assert_ne!(gpa.gpa, 0.0);
+
+        let gpa = grade.get_gpa_from_grades().expect("get gpa fail");
+        assert_ne!(gpa.gpa, 0.0);
+
+        let gpa = grade.get_gpa();
+        assert_ne!(gpa.gpa, 0.0);
 
         grade.fdu.logout().unwrap();
     }

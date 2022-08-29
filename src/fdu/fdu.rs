@@ -51,16 +51,12 @@ pub trait HttpClient {
 
     fn get_cookie_store(&self) -> &Arc<Jar>;
 
-    // safely send a request from builder, dealing common errors
-    // like repeat login and throttling
-    fn send(&self, builder: RequestBuilder) -> Result<Response, reqwest::Error> {
+    // safely send a request and get its text
+    // automatically deal some common errors like repeat login and throttling
+    fn send_and_get_text(&self, builder: RequestBuilder) -> Result<String, reqwest::Error> {
         let req = builder.build()?;
         if let Some(mut request) = req.try_clone() {  // copy!
-            let mut res = self.get_client().execute(req)?;
-            // copy!
-            let mut buf: Vec<u8> = vec![];
-            res.copy_to(&mut buf)?;
-            let html = String::from_utf8_lossy(&buf).to_string();
+            let html = self.get_client().execute(req)?.text()?;
 
             // sleep for a while
             // will be throttled if duration is 1 second
@@ -73,17 +69,17 @@ pub trait HttpClient {
                         let url_ptr = request.url_mut();
                         *url_ptr = Url::parse(href).expect("");
                         println!("repeat login, redirect to {}", request.url().as_str());
-                        return self.get_client().execute(request);
+                        return self.get_client().execute(request)?.text();
                     }
                 }
             } else if html.contains("请不要过快点击") {
-                return self.get_client().execute(request);
+                return self.get_client().execute(request)?.text();
             }
 
-            Ok(res)
+            Ok(html)
 
         } else {
-            return self.get_client().execute(req);
+            return self.get_client().execute(req)?.text();
         }
     }
 }
@@ -242,5 +238,12 @@ mod tests {
         let mut fd = Fdu::new();
         fd.login(uid.as_str(), pwd.as_str()).expect("login error");
         fdu_daily::has_tick(&fd).unwrap();
+    }
+
+    #[test]
+    fn test_safe_send() {
+        let fd = Fdu::new();
+        let html = fd.send_and_get_text(fd.get_client().get("http://www.baidu.com")).unwrap();
+        assert_ne!(html.len(), 0);
     }
 }
