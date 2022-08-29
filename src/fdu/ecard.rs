@@ -28,7 +28,7 @@ mod tests {
 
         let mut fd = Fdu::new();
         fd.login(uid.as_str(), pwd.as_str()).expect("login error");
-        println!("{:#?}", fd.get_qr_code());
+        assert!(fd.get_qr_code().expect("qr code error").starts_with("SWL2"));
         fd.logout().expect("logout error");
     }
 }
