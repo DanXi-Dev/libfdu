@@ -1,5 +1,5 @@
 use scraper::{Html, Selector};
-use crate::fdu::fdu::{Account, Fdu};
+use super::prelude::*;
 
 impl ECardClient for Fdu {}
 

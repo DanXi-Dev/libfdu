@@ -5,9 +5,7 @@ use reqwest::blocking::Client;
 use reqwest::cookie::Jar;
 use scraper::{Html, Selector};
 
-use crate::error::Error;
-use crate::fdu::fdu::*;
-use crate::fdu::fdu::HttpClient;
+use super::prelude::*;
 
 struct Grade {
     fdu: Fdu,
@@ -70,7 +68,7 @@ impl Display for GPA {
 }
 
 impl Grade {
-    fn get_all_grades(&mut self) -> Result<Vec<CourseGrade>, Error> {
+    fn get_all_grades(&mut self) -> Result<Vec<CourseGrade>> {
         if self.grades.len() != 0 {
             return Ok(self.grades.to_vec());
         }
@@ -97,7 +95,7 @@ impl Grade {
         Ok(self.grades.to_vec())
     }
 
-    fn get_grades_of_this_semester(&mut self) -> Result<Vec<CourseGrade>, Error> {
+    fn get_grades_of_this_semester(&mut self) -> Result<Vec<CourseGrade>> {
         if self.get_all_grades()?.len() == 0 {
             return Ok(Vec::new());
         }
@@ -128,14 +126,14 @@ impl Grade {
         GPA::default()
     }
 
-    fn get_gpa_from_grades(&mut self) -> Result<GPA, Error> {
+    fn get_gpa_from_grades(&mut self) -> Result<GPA> {
         let grades = self.get_all_grades()?;
         if grades.len() == 0 {
             return Ok(GPA::default());
         }
         let mut gpa = GPA::default();
         for grade in grades {
-            if grade.grade.eq("P"){ // P isn't calculated
+            if grade.grade.eq("P") { // P isn't calculated
                 continue;
             }
             gpa.gpa += grade.point * grade.credit;
@@ -145,7 +143,7 @@ impl Grade {
         Ok(gpa)
     }
 
-    fn get_gpa_from_jwfw(&mut self) -> Result<GPA, Error> {
+    fn get_gpa_from_jwfw(&mut self) -> Result<GPA> {
         let mut gpa = GPA::default();
         let mut major = "";
 
@@ -174,7 +172,7 @@ impl Grade {
             let mut v = tr.text().collect::<Vec<_>>();
             v.retain(|&x| x.trim() != "");
             if v[3] != major {
-                continue
+                continue;
             }
             // my major
             gpa.total += 1;

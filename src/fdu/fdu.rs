@@ -6,9 +6,8 @@ use reqwest::{header, redirect, Url};
 use reqwest::blocking::{Client, ClientBuilder, RequestBuilder, Response};
 use reqwest::cookie::{CookieStore, Jar};
 use scraper::{Html, Selector};
-use crate::error::SDKError;
-use super::fdu_daily;
-use crate::error::Error;
+// It is good practice to use the prelude to import the commonly used traits and types in this crate.
+use super::prelude::*;
 
 // `const` declares a constant, which will be replaced with its value during compilation.
 //
@@ -53,7 +52,7 @@ pub trait HttpClient {
 
     // safely send a request and get its text
     // automatically deal some common errors like repeat login and throttling
-    fn send_and_get_text(&self, builder: RequestBuilder) -> Result<String, reqwest::Error> {
+    fn send_and_get_text(&self, builder: RequestBuilder) -> Result<String> {
         let req = builder.build()?;
         if let Some(mut request) = req.try_clone() {  // copy!
             let html = self.get_client().execute(req)?.text()?;
@@ -64,22 +63,21 @@ pub trait HttpClient {
 
             if html.contains("当前用户存在重复登录的情况") {
                 let document = Html::parse_document(html.as_str());
-                for a in document.select(&Selector::parse("a").unwrap()){
-                    if let Some(href) = a.value().attr("href"){
+                for a in document.select(&Selector::parse("a").unwrap()) {
+                    if let Some(href) = a.value().attr("href") {
                         let url_ptr = request.url_mut();
                         *url_ptr = Url::parse(href).expect("");
                         println!("repeat login, redirect to {}", request.url().as_str());
-                        return self.get_client().execute(request)?.text();
+                        return Ok(self.get_client().execute(request)?.text()?);
                     }
                 }
             } else if html.contains("请不要过快点击") {
-                return self.get_client().execute(request)?.text();
+                return Ok(self.get_client().execute(request)?.text()?);
             }
 
             Ok(html)
-
         } else {
-            return self.get_client().execute(req)?.text();
+            Ok(self.get_client().execute(req)?.text()?)
         }
     }
 }
@@ -123,7 +121,7 @@ pub trait HttpClient {
 pub trait Account: HttpClient {
     fn set_credentials(&mut self, uid: &str, pwd: &str);
 
-    fn login(&mut self, uid: &str, pwd: &str) -> Result<(), Error> {
+    fn login(&mut self, uid: &str, pwd: &str) -> Result<()> {
         self.set_credentials(uid, pwd);
 
         let mut payload = HashMap::new();
@@ -148,19 +146,19 @@ pub trait Account: HttpClient {
         if res.url().as_str() == LOGIN_SUCCESS_URL {
             Ok(())
         } else {
-            Err(Error::LoginError)
+            Err(SDKError::with_type(SDKErrorType::LoginError, "login failed".to_string()))
         }
     }
 
-    fn logout(&self) -> Result<(), Error> {
+    fn logout(&self) -> Result<()> {
         // TODO: logout service
         let res = self.get_client().get(LOGOUT_URL).query(&[("service", "")]).send()?;
 
         if res.status() != 200 {
-            return Err(Error::LogoutError);
+            Err(SDKError::with_type(ErrorType::LoginError, "logout failed".to_string()))
+        } else {
+            Ok(())
         }
-
-        Ok(())
     }
 }
 

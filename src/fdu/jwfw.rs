@@ -132,6 +132,7 @@ pub trait JwfwClient: Account {
         let query_html = client.post(JWFW_COURSE_TABLE_QUERY_URL).form(&payload).send()?.text()?;
         let course_data = parse_course_data(&query_html);
         println!("{:#?}", course_data);
+        panic!("");
         Ok(course_data)
     }
 }

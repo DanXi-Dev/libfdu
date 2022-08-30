@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::panic::catch_unwind;
 
 use regex::Regex;
 use scraper::{Html, Selector};
@@ -29,16 +30,19 @@ pub trait MyFduClient: Account {
         for element in document.select(&selector) {
             let sub_selector = Selector::parse("td").unwrap();
             let mut sub_element = element.select(&sub_selector);
-            let course_info: GradeData = GradeData {
-                id: sub_element.next().unwrap().inner_html(),
-                academic_year: sub_element.next().unwrap().inner_html(),
-                semester: sub_element.next().unwrap().inner_html(),
-                name: sub_element.next().unwrap().inner_html(),
-                credits: sub_element.next().unwrap().inner_html().parse().unwrap(),
-                grade: sub_element.next().unwrap().inner_html(),
-            };
-            // println!("{:?}", course_info);
-            grade_data.push(course_info);
+            catch_unwind(||{
+                let course_info: GradeData = GradeData {
+                    id: sub_element.next().unwrap().inner_html(),
+                    academic_year: sub_element.next().unwrap().inner_html(),
+                    semester: sub_element.next().unwrap().inner_html(),
+                    name: sub_element.next().unwrap().inner_html(),
+                    credits: sub_element.next().unwrap().inner_html().parse().unwrap(),
+                    grade: sub_element.next().unwrap().inner_html(),
+                };
+                // println!("{:?}", course_info);
+                grade_data.push(course_info);
+            })
+
         }
         Ok(grade_data)
     }
