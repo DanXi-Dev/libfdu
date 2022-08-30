@@ -57,11 +57,25 @@ pub fn has_tick(fdu: &Fdu) -> Result<bool> {
     //     Some(info) => info.as_object().ok_or(fe("info"))?.get("date"),
     //     None => None
     // };
-
     if let Ok(date) = date {
-        // get current time in yyyy-MM-dd
-        Ok(Local::now().format("%Y-%m-%d").to_string() == date.to_string())
+        // get current time in yyyyMMdd
+        Ok(Local::now().format("%Y%m%d").to_string() == date.as_str().unwrap_or_default())
     } else {
         Ok(false)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_fdu_daily() {
+        dotenv::dotenv().ok();
+        let uid = std::env::var("UID").expect("environment variable UID not set");
+        let pwd = std::env::var("PWD").expect("environment variable PWD not set");
+        let mut fd = Fdu::new();
+        fd.login(uid.as_str(), pwd.as_str()).expect("login error");
+        assert!(has_tick(&fd).unwrap())
     }
 }

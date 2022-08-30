@@ -8,7 +8,7 @@ const ECARD_QR_CODE_URL: &str = "https://ecard.fudan.edu.cn/epay/wxpage/fudan/zf
 pub trait ECardClient: Account {
     fn get_qr_code(&self) -> reqwest::Result<String> {
         let client = self.get_client();
-        let mut html = client.get(ECARD_QR_CODE_URL).send()?.text()?;
+        let html = client.get(ECARD_QR_CODE_URL).send()?.text()?;
         let document = Html::parse_document(html.as_str());
         let selector = Selector::parse(r##"#myText"##).unwrap();
         let element = document.select(&selector).next().unwrap();

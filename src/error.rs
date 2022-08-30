@@ -1,5 +1,4 @@
 use std::fmt::{Debug, Display, Formatter};
-use serde::de::Unexpected::Str;
 
 pub type Result<T> = std::result::Result<T, SDKError>;
 
@@ -8,6 +7,12 @@ pub enum ErrorType {
     ParseError,
     NoneError,
     OtherError,
+}
+
+impl Default for ErrorType {
+    fn default() -> Self {
+        ErrorType::OtherError
+    }
 }
 
 impl Display for ErrorType {
@@ -29,7 +34,7 @@ pub struct SDKError {
 }
 
 impl SDKError {
-    pub fn is_none_error(&self) -> bool { self.r#type == ErrorType::NoneError }
+    pub fn is_none_error(&self) -> bool { matches!(self.r#type, ErrorType::NoneError) }
     pub fn none() -> Self { SDKError::with_type(ErrorType::NoneError, Default::default()) }
     pub fn new(message: String) -> Self {
         SDKError::with_type(ErrorType::NoneError, message)

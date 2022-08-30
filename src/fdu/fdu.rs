@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::{thread, time::Duration};
 
-use reqwest::{header, redirect, Url};
-use reqwest::blocking::{Client, ClientBuilder, RequestBuilder, Response};
+use reqwest::{header, Url};
+use reqwest::blocking::{Client, ClientBuilder, RequestBuilder};
 use reqwest::cookie::{CookieStore, Jar};
 use scraper::{Html, Selector};
 // It is good practice to use the prelude to import the commonly used traits and types in this crate.
@@ -146,7 +146,7 @@ pub trait Account: HttpClient {
         if res.url().as_str() == LOGIN_SUCCESS_URL {
             Ok(())
         } else {
-            Err(SDKError::with_type(SDKErrorType::LoginError, "login failed".to_string()))
+            Err(SDKError::with_type(ErrorType::LoginError, "login failed".to_string()))
         }
     }
 

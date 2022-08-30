@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::panic::catch_unwind;
 
-use regex::Regex;
 use scraper::{Html, Selector};
 
 use crate::fdu::fdu::{Account, Fdu};
 
 const MYFDU_URL: &str = "https://my.fudan.edu.cn/";
 const COURSE_GRADE_URL: &str = "https://my.fudan.edu.cn/list/bks_xx_cj";
+
 #[derive(Debug)]
 pub struct GradeData {
     id: String,
@@ -30,19 +30,16 @@ pub trait MyFduClient: Account {
         for element in document.select(&selector) {
             let sub_selector = Selector::parse("td").unwrap();
             let mut sub_element = element.select(&sub_selector);
-            catch_unwind(||{
-                let course_info: GradeData = GradeData {
-                    id: sub_element.next().unwrap().inner_html(),
-                    academic_year: sub_element.next().unwrap().inner_html(),
-                    semester: sub_element.next().unwrap().inner_html(),
-                    name: sub_element.next().unwrap().inner_html(),
-                    credits: sub_element.next().unwrap().inner_html().parse().unwrap(),
-                    grade: sub_element.next().unwrap().inner_html(),
-                };
-                // println!("{:?}", course_info);
-                grade_data.push(course_info);
-            })
-
+            let course_info: GradeData = GradeData {
+                id: sub_element.next().unwrap().inner_html(),
+                academic_year: sub_element.next().unwrap().inner_html(),
+                semester: sub_element.next().unwrap().inner_html(),
+                name: sub_element.next().unwrap().inner_html(),
+                credits: sub_element.next().unwrap().inner_html().parse().unwrap(),
+                grade: sub_element.next().unwrap().inner_html(),
+            };
+            // println!("{:?}", course_info);
+            grade_data.push(course_info);
         }
         Ok(grade_data)
     }
@@ -51,7 +48,6 @@ pub trait MyFduClient: Account {
 
 #[cfg(test)]
 mod tests {
-    use crate::fdu::jwfw::JwfwClient;
     use super::*;
 
     #[test]
