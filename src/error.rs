@@ -5,6 +5,7 @@ pub type Result<T> = std::result::Result<T, SDKError>;
 pub enum ErrorType {
     LoginError,
     ParseError,
+    NetworkError,
     NoneError,
     OtherError,
 }
@@ -20,6 +21,7 @@ impl Display for ErrorType {
         match self {
             ErrorType::LoginError => write!(f, "LoginError"),
             ErrorType::ParseError => write!(f, "ParseError"),
+            ErrorType::NetworkError => write!(f, "NetworkError"),
             ErrorType::NoneError => write!(f, "NoneError"),
             ErrorType::OtherError => write!(f, "OtherError"),
         }
